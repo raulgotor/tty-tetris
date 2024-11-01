@@ -1,10 +1,8 @@
 class TtyTetris < Formula
  desc "Terminal-based Tetris game"
  homepage "https://github.com/raulgotor/tty-tetris"
- url "https://github.com/raulgotor/tty-tetris.git",
-     branch: "main"
- head "https://github.com/raulgotor/tty-tetris.git",
-      branch: "main"
+ url "https://github.com/raulgotor/tty-tetris/archive/v0.1.0.tar.gz" # Point to the tarball of the tag
+   version "0.1.0"  # Include the version
  license "MIT"
 
   depends_on "cmake" => :build
