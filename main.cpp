@@ -20,8 +20,6 @@
  */
 #define _XOPEN_SOURCE_EXTENDED
 
-#include <iostream>
-#include <print>
 #include <libc.h>
 #include <ncurses.h>
 #include <functional>

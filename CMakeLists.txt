@@ -17,8 +17,9 @@ add_executable(tetris
 
 target_link_libraries(tetris PRIVATE ${CURSES_LIBRARIES})
 
+include(GNUInstallDirs)
 install(TARGETS tetris
-        RUNTIME DESTINATION bin
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
+        RUNTIME
+        DESTINATION "${CMAKE_INSTALL_BINDIR}"
+        COMPONENT Runtime
 )
