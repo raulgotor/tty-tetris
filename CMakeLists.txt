@@ -3,9 +3,9 @@ project(tetris)
 
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_CXX_FLAGS
-        "-lncurses"
-)
+
+find_package(Curses REQUIRED)
+include_directories(${CURSES_INCLUDE_DIR})
 
 add_executable(tetris
         main.cpp
@@ -13,4 +13,12 @@ add_executable(tetris
         Tetromino.cpp
         Tetris.h
         Tetris.cpp
+)
+
+target_link_libraries(tetris PRIVATE ${CURSES_LIBRARIES})
+
+install(TARGETS tetris
+        RUNTIME DESTINATION bin
+        LIBRARY DESTINATION lib
+        ARCHIVE DESTINATION lib
 )
