@@ -175,6 +175,8 @@ static void setupUI(void)
                                     windowGameStartX + 15, true);
 
         keypad(pWindowGame, TRUE);
+        nodelay(pWindowGame, TRUE);
+        timeout(0);
 
         wmove(pWindowKeys, 1, 2);
         waddstr(pWindowKeys, "← Move Left");
@@ -261,7 +263,6 @@ int main()
         tetris.startGame();
 
         while (!shouldQuit) {
-                nodelay(pWindowGame, TRUE);
                 ch = wgetch(pWindowGame);
 
                 switch (ch) {
@@ -290,7 +291,7 @@ int main()
 
                 currentTime = getMicroseconds();
 
-                if (currentTime - lastUpdate > 10) {
+                if ((ERR != ch) || (100 < currentTime - lastUpdate)) {
                         lastUpdate = currentTime;
                         refreshUI(tetris);
                 }
