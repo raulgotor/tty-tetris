@@ -28,7 +28,7 @@ class Shape {
 
 public:
 
-        int kicks_data[4][5][2] = {
+        int kicksData[4][5][2] = {
                 {{0, 0}, {-1, 0}, {-1, +1}, {0, -2}, {-1, -2}},
                 {{0, 0}, {+1, 0}, {+1, -1}, {0, +2}, {+1, +2}},
                 {{0, 0}, {+1, 0}, {+1, +1}, {0, -2}, {+1, -2}},
@@ -96,8 +96,12 @@ public:
         virtual ~Shape()
         {}
 
-        Shape(const Shape &other) : width(other.width), height(other.height), shape(other.shape), kicks(other.kicks),
-                                    _shouldKick(other._shouldKick)
+        Shape(const Shape &other) :
+                width(other.width),
+                height(other.height),
+                shape(other.shape),
+                kicks(other.kicks),
+                _shouldKick(other._shouldKick)
         {}
 
         Shape &operator=(const Shape &rhs)
@@ -114,7 +118,7 @@ public:
 
         virtual const int (* getKicks() const )[4][5][2]
         {
-                return &kicks_data;
+                return &kicksData;
         }
 
         virtual std::unique_ptr<Shape> clone() const = 0;
@@ -253,7 +257,7 @@ public:
         {
                 initializeShape();
                 _shouldKick = true;
-                kicks = &kicks_data;
+                kicks = &kicksData;
         }
 
         void initializeShape() override
@@ -277,7 +281,7 @@ public:
         {
                 initializeShape();
                 _shouldKick = true;
-                kicks = &kicks_data;
+                kicks = &kicksData;
         }
 
         void initializeShape() override

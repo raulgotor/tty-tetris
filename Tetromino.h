@@ -101,9 +101,9 @@ public:
 
         void rotate(void);
 
-        void moveVertical(int direction);
+        void moveVertical(int const direction);
 
-        void move(int direction);
+        void move(int const direction);
 
         bool shouldKick(void);
 
@@ -111,9 +111,9 @@ public:
 
         std::vector<std::vector<int>> getShape();
 
-        int getPositionX();
+        int getPositionX() const;
 
-        int getPositionY();
+        int getPositionY() const;
 
 /*
  *******************************************************************************
@@ -123,7 +123,7 @@ public:
 
 private:
 
-        std::vector<std::vector<int>> performNRotations(int n);
+        std::vector<std::vector<int>> performNRotations(int const n);
 
         static void transpose(std::vector<std::vector<int>> &matrix);
 };

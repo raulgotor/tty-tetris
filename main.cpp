@@ -56,9 +56,9 @@
 
 static void drawPixel(int x, int y);
 
-static int64_t get_microseconds(void);
+static int64_t getMicroseconds(void);
 
-static WINDOW * create_newwin(int height, int width, int starty, int startx, bool box);
+static WINDOW * createWindow(int height, int width, int starty, int startx, bool box);
 
 /*
  *******************************************************************************
@@ -72,10 +72,12 @@ static WINDOW * create_newwin(int height, int width, int starty, int startx, boo
  *******************************************************************************
  */
 
-WINDOW * p_window_game;
-WINDOW * p_window_frame;
-WINDOW * p_window_next;
-WINDOW * p_window_next_frame;
+WINDOW * pWindowGame;
+WINDOW * pWindowGameFrame;
+WINDOW * pWindowNext;
+WINDOW * pWindowNextFrame;
+WINDOW * pWindowKeys;
+WINDOW * pWindowStats;
 
 /*
  *******************************************************************************
@@ -89,28 +91,28 @@ WINDOW * p_window_next_frame;
  *******************************************************************************
  */
 
-static void drawPixel(int x, int y, WINDOW * p_window)
+static void drawPixel(int const x, int const y, WINDOW * pWindow)
 {
-        cchar_t wc_block;
-        wchar_t block_char = L'\u2593';
+        cchar_t block;
+        wchar_t blockChar = L'\u2593';
 
-        wmove(p_window, x, y);
-        setcchar(&wc_block, &block_char, 0, 0, NULL);
-        wadd_wch(p_window, &wc_block);
+        wmove(pWindow, x, y);
+        setcchar(&block, &blockChar, 0, 0, NULL);
+        wadd_wch(pWindow, &block);
 }
 
-static void drawAtMainWindow(int x, int y)
+static void drawAtMainWindow(int const x, int const y)
 {
-        drawPixel(x, y, p_window_game);
+        drawPixel(x, y, pWindowGame);
 }
 
 static void drawAtHelperWindow(int x, int y)
 {
-        drawPixel(x, y, p_window_next);
+        drawPixel(x, y, pWindowNext);
 }
 
 
-static int64_t get_microseconds(void) {
+static int64_t getMicroseconds(void) {
         struct timeval tv;
 
         gettimeofday(&tv, NULL);
@@ -118,7 +120,7 @@ static int64_t get_microseconds(void) {
         return (int64_t)(tv.tv_sec) * 1000 + (int64_t)(tv.tv_usec / 1000);
 }
 
-static WINDOW * create_newwin(int height, int width, int starty, int startx, bool _box)
+static WINDOW * createWindow(int height, int width, int starty, int startx, bool _box)
 {
         WINDOW * local_win;
 
@@ -133,6 +135,113 @@ static WINDOW * create_newwin(int height, int width, int starty, int startx, boo
         return local_win;
 }
 
+static void setupUI(void)
+{
+        int margin = 1;
+        int windowNextX = 15;
+        int windowNextWidth = 6;
+        int windowNextHeight = 2;
+        int windowKeysHeight = 9;
+        int windowKeysWidth = 15;
+
+        int windowStatsHeight = 5;
+        int windowStatsWidth = windowKeysWidth;
+
+        int windowGameStartX = 0;
+        int windowsTopStartY = 0;
+
+        int windowGameWidth = 10;
+        int windowGameHeight = 20;
+
+        setlocale(LC_ALL, "");
+        initscr();
+        cbreak();
+        noecho();
+        curs_set(0);
+
+        pWindowNext = createWindow(windowNextHeight, windowNextWidth, windowsTopStartY + margin,
+                                   windowNextX + margin, true);
+        pWindowNextFrame = createWindow(windowNextHeight + margin * 2, windowNextWidth + margin * 2,
+                                        windowsTopStartY, windowNextX, true);
+
+
+        pWindowGameFrame = createWindow(windowGameHeight + margin * 2, windowGameWidth + margin * 2,
+                                        windowsTopStartY, windowGameStartX, true);
+        pWindowGame = createWindow(windowGameHeight, windowGameWidth, windowsTopStartY + margin,
+                                   windowGameStartX + margin, false);
+        pWindowKeys = createWindow(windowKeysHeight, windowKeysWidth, windowsTopStartY + 13,
+                                   windowGameStartX + 15, true);
+        pWindowStats = createWindow(windowStatsHeight, windowStatsWidth, windowsTopStartY + 5,
+                                    windowGameStartX + 15, true);
+
+        keypad(pWindowGame, TRUE);
+
+        wmove(pWindowKeys, 1, 2);
+        waddstr(pWindowKeys, "← Move Left");
+        wmove(pWindowKeys, 2, 2);
+        waddstr(pWindowKeys, "→ Move Right");
+        wmove(pWindowKeys, 3, 2);
+        waddstr(pWindowKeys, "↑ Rotate");
+        wmove(pWindowKeys, 4, 2);
+        waddstr(pWindowKeys, "↓ Move Down");
+        wmove(pWindowKeys, 5, 2);
+        waddstr(pWindowKeys, "Space - Drop");
+        wmove(pWindowKeys, 6, 2);
+        waddstr(pWindowKeys, "q Quit");
+        wmove(pWindowKeys, 7, 2);
+        waddstr(pWindowKeys, "n New");
+
+        wmove(pWindowGameFrame, 0, 3);
+        waddstr(pWindowGameFrame, "TETRIS");
+
+        wmove(pWindowStats, 0, 2);
+        waddstr(pWindowStats, "Statistics");
+
+        wmove(pWindowKeys, 0, 3);
+        waddstr(pWindowKeys, "Keyboard");
+
+        wmove(pWindowNextFrame, 0, 2);
+        waddstr(pWindowNextFrame, "Next");
+
+        wrefresh(pWindowStats);
+        wrefresh(pWindowGameFrame);
+        wrefresh(pWindowKeys);
+        wrefresh(pWindowNextFrame);
+
+}
+
+static void refreshUI(Tetris &tetris)
+{
+        char const str[20] = "Score:";
+
+        wclear(pWindowNext);
+        wclear(pWindowGame);
+
+        tetris.process();
+        wmove(pWindowStats, 1, 1);
+        snprintf(const_cast<char *>(str),
+                 sizeof(str), "Score: %d",
+                 tetris.getScore());
+
+        waddstr(pWindowStats, str);
+        wmove(pWindowStats, 2, 1);
+        snprintf(const_cast<char *>(str),
+                 sizeof(str), "Level: %d",
+                 tetris.getLevel());
+
+        waddstr(pWindowStats, str);
+        wmove(pWindowStats, 3, 1);
+        snprintf(const_cast<char *>(str),
+                 sizeof(str), "Lines: %d",
+                 tetris.getLines());
+
+        waddstr(pWindowStats, str);
+
+        wrefresh(pWindowStats);
+        wrefresh(pWindowGame);
+        wrefresh(pWindowNext);
+}
+
 /*
  *******************************************************************************
  * Interrupt Service Routines / Tasks / Thread Main Functions                  *
@@ -141,43 +250,20 @@ static WINDOW * create_newwin(int height, int width, int starty, int startx, boo
 
 int main()
 {
-        Tetris tetris(drawAtMainWindow, drawAtHelperWindow, get_microseconds);
-        int64_t last_update = 0;
-        bool should_quit = false;
-
-        int startx, starty, width, height;
+        Tetris tetris(drawAtMainWindow, drawAtHelperWindow, getMicroseconds);
+        int64_t lastUpdate = 0;
+        bool shouldQuit = false;
+        int64_t currentTime;
         int ch;
-        int64_t current_time;
 
-        height = 20;
-        width = 10;
-        starty = 0;
-        startx = 0;
-
-        int next_part_x = 15;
-        int next_width = 4;
-        int next_height = 2;
-
-        setlocale(LC_ALL, "");  // Use "" to set to the current locale, usually UTF-8
-        initscr();
-        cbreak();
-        noecho();
-        curs_set(0);
-
-        refresh();
-        p_window_next = create_newwin(next_height, next_width, starty + 1, next_part_x + 1, true);
-        p_window_next_frame = create_newwin(next_height+2 , next_width+2, starty, next_part_x, true);
-        p_window_frame = create_newwin(height +2 , width+ 2, starty, startx, true);
-        p_window_game = create_newwin(height, width, starty + 1, startx + 1, false);
-        char const str[20] = "Score:";
-
-        keypad(p_window_game, TRUE);
+        setupUI();
 
         tetris.startGame();
 
-        while (!should_quit) {
-                nodelay(p_window_game, TRUE);
-                ch = wgetch(p_window_game);
+        while (!shouldQuit) {
+                nodelay(pWindowGame, TRUE);
+                ch = wgetch(pWindowGame);
+
                 switch (ch) {
                         case KEY_LEFT:
                                 tetris.moveLeft();
@@ -194,31 +280,19 @@ int main()
                         case ' ':
                                 tetris.drop();
                                 break;
+                        case 'n':
+                                tetris.startGame();
+                                break;
                         case 'q':
-                                should_quit = true;
+                                shouldQuit = true;
                                 break;
                 }
 
-                current_time = get_microseconds();
+                currentTime = getMicroseconds();
 
-                if (current_time - last_update > 10) {
-                        last_update = current_time;
-                        wclear(p_window_next);
-                        wclear(p_window_game);
-
-                        tetris.process();
-                        move(8,15);
-                        snprintf(const_cast<char *>(str), sizeof(str), "Score: %d", tetris.getScore());
-                        addstr(str);
-                        move(9,15);
-                        snprintf(const_cast<char *>(str), sizeof(str), "Level: %d", tetris.getLevel());
-                        addstr(str);
-                        move(10,15);
-                        snprintf(const_cast<char *>(str), sizeof(str), "Lines: %d", tetris.getLines());
-                        addstr(str);
-                        refresh();
-                        wrefresh(p_window_game);
-                        wrefresh(p_window_next);
+                if (currentTime - lastUpdate > 10) {
+                        lastUpdate = currentTime;
+                        refreshUI(tetris);
                 }
         }
 
@@ -226,6 +300,3 @@ int main()
 
         return 0;
 }
-
-
-

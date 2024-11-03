@@ -82,21 +82,21 @@ void Tetromino::rotate(void) {
         }
 }
 
-void Tetromino::moveVertical(int direction)
+void Tetromino::moveVertical(int const direction)
 {
         positionY -= direction;
 }
 
-void Tetromino::move(int direction) {
+void Tetromino::move(int const direction) {
         positionX += direction;
 }
 
-int Tetromino::getPositionX()
+int Tetromino::getPositionX(void) const
 {
         return positionX;
 }
 
-int Tetromino::getPositionY()
+int Tetromino::getPositionY(void) const
 {
         return positionY;
 }
@@ -106,8 +106,8 @@ bool Tetromino::shouldKick(void)
         return shape->shouldKick();
 }
 
-const int (*Tetromino::getKicks() const)[5][2] {
-        const int (*p)[4][5][2]  = shape->getKicks();
+int const (*Tetromino::getKicks() const)[5][2] {
+        int const (*p)[4][5][2]  = shape->getKicks();
 
         return &((*p)[rotation]);
 }
@@ -118,11 +118,12 @@ const int (*Tetromino::getKicks() const)[5][2] {
  *******************************************************************************
  */
 
-std::vector<std::vector<int>> Tetromino::performNRotations(int n)
+std::vector<std::vector<int>> Tetromino::performNRotations(int const n)
 {
         std::vector<std::vector<int>> s = shape->getShape();
+        int i;
 
-        for (int i = 0; i < n; ++i) {
+        for (i = 0; n > i; ++i) {
                 transpose(s);
         }
 
@@ -132,14 +133,16 @@ std::vector<std::vector<int>> Tetromino::performNRotations(int n)
 void Tetromino::transpose(std::vector<std::vector<int>>& matrix) {
 
         unsigned long width = matrix.size();
+        int i;
+        int j;
 
-        for (int i = 0; width > i; ++i) {
-                for (int j = i + 1; j < width; ++j) {
+        for (i = 0; width > i; ++i) {
+                for (j = i + 1; j < width; ++j) {
                         std::swap(matrix[i][j], matrix[j][i]);
                 }
         }
 
-        for (int i = 0; width > i; ++i) {
+        for (i = 0; width > i; ++i) {
                 std::reverse(matrix[i].begin(), matrix[i].end());
         }
 }

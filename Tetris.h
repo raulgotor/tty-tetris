@@ -51,8 +51,8 @@ public:
 private:
         static int const ROWS = 20;
         static int const COLUMNS = 10;
-        int total_lines = 0;
-        constexpr static int const deleted_lines_multiplier[5] =
+        int totalLines = 0;
+        constexpr static int const deletedLinesMultiplier[5] =
         {
                 0,
                 100,
@@ -114,16 +114,16 @@ private:
         int score;
         bool isGameRunning = false;
         int grid[ROWS][COLUMNS] = {0};
-        bool should_delete_rows[ROWS] = {false};
-        int buffer_grid[ROWS][COLUMNS] = {0};
-        int64_t last_time = 0;
+        bool shouldDeleteRows[ROWS] = {false};
+        int bufferGrid[ROWS][COLUMNS] = {0};
+        int64_t lastTime = 0;
         int  iteration = 0;
         int level = 0;
         Tetromino * currentPart{};
         Tetromino * nextPart{};
         std::function<void(int x, int y)> printer{};
         std::function<void(int x, int y)> next_printer{};
-        std::function<int64_t (void)> get_us{};
+        std::function<int64_t (void)> getMs{};
 
 /*
  *******************************************************************************
@@ -135,33 +135,30 @@ public:
 
         Tetris(std::function<void(int x, int y)>,
                std::function<void(int x, int y)>,
-               std::function<int64_t(void)> get_us);
-
-        void moveRight(void);
-
-        void moveLeft(void);
-
-        void moveDown(void);
+               std::function<int64_t(void)> _getMs);
 
         void drop(void);
 
-        void addPart(void);
+        int getLevel() const;
 
-        void rotate();
+        int getLines() const;
+
+        int getScore() const;
+
+        bool isRunning() const;
+
+        void moveDown(void);
+
+        void moveLeft(void);
+
+        void moveRight(void);
 
         void process();
 
-        int getScore();
-
-        int getLines();
-
-        int getLevel();
+        void rotate();
 
         void startGame();
 
-        bool isRunning();
-
-        bool rowsToDelete(void);
 
 
 /*
@@ -171,47 +168,59 @@ public:
  */
 
 private:
-        void draw(void);
+        void addPart(void);
 
-        bool isOverlap(Tetromino &tetromino);
+        void addScore(int const numberOfLines);
 
-        void clearBuffer(void);
+        void step(void);
 
-        bool areCoordinatesInBounds(int x, int y);
+        // Game Buffers
 
-        void printCurrentPart(void);
-
-        void printGrid(void);
-
-        bool isCurrentPartPartiallyOutsideBounds(void);
-
-        void addScore(int deleted_lines);
-
-        void step();
+        void addPartToBuffer(void);
 
         void addPartToGrid(void);
 
-        void printBufferGrid(void);
+        void clearBuffer(void);
 
-        void printNextPart(void);
+        void clearGrid(void);
 
-        int getLinesToDelete(void);
+        // Drawing
 
-        void deleteRowAndShiftDown(int i);
+        void draw(void);
 
-        bool isTouchingSide(Side_t const partSide);
+        void drawBuffer(void);
 
-        bool isTouchingGridContent(void);
+        void drawGrid(void);
 
-        int findShift(Tetromino &tetromino);
+        void drawNextPart(void);
 
-        int testKicks(Tetromino &tetromino);
+        // Delete lines
 
-        void animateDeleteRows(void (Tetris::*onAnimationEnd)(void));
+        void animateLineDeletion(void (Tetris::*onAnimationEnd)(void));
 
-        void setRow(bool b, int i);
+        void deleteCompletedLines();
 
-        void deleteFullRows();
+        void deleteLineAndShiftDown(int const lineToDelete);
+
+        int getCompleteLines(void);
+
+        bool isAnyLineToDelete(void);
+
+        void setLineAtGrid(bool const b, int const i);
+
+        // Geometry checks
+
+        bool isOverlap(Tetromino &tetromino);
+
+        bool isPartOOB(void);
+
+        bool isPartTouchingGridContent(void);
+
+        bool isPartTouchingSide(Side_t const partSide);
+
+        bool isPointInBounds(int const x, int const y);
+
+        int testPartKicks(Tetromino &tetromino);
 };
 
 #endif //TETRIS_H

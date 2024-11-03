@@ -58,6 +58,8 @@
  *******************************************************************************
  */
 
+static std::unique_ptr<Shape> getRandomShape(void);
+
 /*
  *******************************************************************************
  * Public Function Bodies                                                      *
@@ -65,17 +67,17 @@
  */
 
 Tetris::Tetris(std::function<void(int x, int y)> fprinter,
-               std::function<void(int x, int y)> fnext_printer,
-               std::function<int64_t(void)> _get_us)
+               std::function<void(int x, int y)> fnextPrinter,
+               std::function<int64_t(void)> _getMs)
 {
         printer = fprinter;
-        next_printer = fnext_printer;
-        get_us = _get_us;
+        next_printer = fnextPrinter;
+        getMs = _getMs;
 }
 
 void Tetris::moveLeft(void)
 {
-        if (!isTouchingSide(TETRIS_SIDE_LEFT)) {
+        if (!isPartTouchingSide(TETRIS_SIDE_LEFT)) {
                 currentPart->move(-1);
         }
 }
@@ -83,44 +85,18 @@ void Tetris::moveLeft(void)
 
 void Tetris::moveRight(void)
 {
-        if (!isTouchingSide(TETRIS_SIDE_RIGHT)) {
+        if (!isPartTouchingSide(TETRIS_SIDE_RIGHT)) {
                 currentPart->move(1);
         }
 }
 
-
-static std::unique_ptr<Shape> getRandomShape(void)
-{
-        // Array of factory functions
-        std::array<std::unique_ptr<Shape>(*)(), 7> shapeFactories = {
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<TShape>(); },
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<SShape>(); },
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<IShape>(); },
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<JShape>(); },
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<LShape>(); },
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<OShape>(); },
-                +[]() -> std::unique_ptr<Shape> { return std::make_unique<ZShape>(); }
-        };
-        std::srand(std::time(nullptr));
-
-        // Generate a random number between 1 and 10
-        int random_number = (std::rand() % 6);
-
-        // Create and use shapes
-        return shapeFactories[random_number]();
-}
-
-void Tetris::addPart(void)
-{
-        this->currentPart = nextPart;
-        this->nextPart = new Tetromino(std::move(getRandomShape()));
-}
-
-
-void Tetris::startGame()
+void Tetris::startGame(void)
 {
         score = 0;
         level = 0;
+        totalLines = 0;
+        clearBuffer();
+        clearGrid();
         this->nextPart = new Tetromino(std::move(getRandomShape()));
 
         addPart();
@@ -128,92 +104,82 @@ void Tetris::startGame()
 }
 
 
-void Tetris::rotate()
+void Tetris::rotate(void)
 {
-        Tetromino testing_copy(*currentPart);
-        int const (* p_available_kicks)[5][2];
-        int const (* p_kick_op);
-        int allowed_kick_idx;
+        Tetromino testingCopy(*currentPart);
+        int const (* pAvailableKicks)[5][2];
+        int const (* pKickOp);
+        int allowedKickIdx;
 
         if (currentPart->shouldKick()) {
-                allowed_kick_idx = testKicks(testing_copy);
+                allowedKickIdx = testPartKicks(testingCopy);
 
-                if (-1 != allowed_kick_idx) {
-                        p_available_kicks = currentPart->getKicks();
-                        p_kick_op = (*p_available_kicks)[allowed_kick_idx];
+                if (-1 != allowedKickIdx) {
+                        pAvailableKicks = currentPart->getKicks();
+                        pKickOp = (*pAvailableKicks)[allowedKickIdx];
 
                         currentPart->rotate();
-                        currentPart->move(p_kick_op[0]);
-                        currentPart->moveVertical(p_kick_op[1]);
+                        currentPart->move(pKickOp[0]);
+                        currentPart->moveVertical(pKickOp[1]);
                 } else {
                         // No allowed rotation possible
                 }
         }
 }
 
-void Tetris::moveDown()
+void Tetris::moveDown(void)
 {
-        last_time = 0;
+        lastTime = 0;
 }
 
-void Tetris::drop()
+void Tetris::drop(void)
 {
-        while (!isTouchingSide(TETRIS_SIDE_BOTTOM)) {
+        while (!isPartTouchingSide(TETRIS_SIDE_BOTTOM)) {
                 step();
         }
 }
 
-int Tetris::getScore()
+int Tetris::getScore(void) const
 {
         return score;
 }
 
-int Tetris::getLines()
+int Tetris::getLines(void) const
 {
-        return total_lines;
+        return totalLines;
 }
 
-int Tetris::getLevel()
+int Tetris::getLevel(void) const
 {
         return level + 1;
 }
 
-bool Tetris::isRunning(void)
+bool Tetris::isRunning(void) const
 {
         return isGameRunning;
 }
 
-bool Tetris::rowsToDelete(void) {
-        for (int i = 0; ROWS > i; ++i) {
-                if (should_delete_rows[i]) {
-                        return true;
-                }
-        }
-        return false;
-}
-
-
-
-void Tetris::process()
+void Tetris::process(void)
 {
+        int64_t n;
+        double timeFrameS = (double) 1 / 60;
+        double secondsCell;
+
         if (isRunning()) {
-                if (rowsToDelete()) {
-                        animateDeleteRows(&Tetris::deleteFullRows);
+                if (isAnyLineToDelete()) {
+                        animateLineDeletion(&Tetris::deleteCompletedLines);
 
                 } else {
                         draw();
 
-                        int64_t n = get_us();
-                        double time_frame_s = (double) 1 / 60;
-                        double seconds_cell = time_frame_s / g_per_cell[level] * 1000;
+                        n = getMs();
+                        secondsCell = timeFrameS / g_per_cell[level] * 1000;
 
-                        if (seconds_cell < (n - last_time)) {
-                                last_time = n;
+                        if (secondsCell < (n - lastTime)) {
+                                lastTime = n;
                                 step();
                         }
                 }
-
-
         }
 }
 
@@ -222,247 +188,145 @@ void Tetris::process()
  * Private Function Bodies                                                     *
  *******************************************************************************
  */
+void f();
 
-void Tetris::deleteRowAndShiftDown(int line_to_delete)
+void Tetris::addPart(void)
 {
-        int i;
-        for (i = line_to_delete; 0 < i; --i) {
-                memcpy(grid[i], grid[i - 1], sizeof(grid[0]));
-        }
-
-        memset(grid[0], 0, sizeof(grid[0]));
+        this->currentPart = nextPart;
+        this->nextPart = new Tetromino(std::move(getRandomShape()));
 }
 
-int Tetris::getLinesToDelete(void)
+void Tetris::addScore(int const numberOfLines)
 {
-        int i = 0;
-        int j = 0;
-        int deleted_rows = 0;
+        totalLines += numberOfLines;
+        score += deletedLinesMultiplier[numberOfLines] * (level + 1);
+        level = totalLines / 10;
+}
 
-        for (i = ROWS;  0 <= i; --i) {
-
-                bool should_delete_row = true;
-                for (j = 0; COLUMNS > j; ++j) {
-                        if (grid[i][j] != 1) {
-                                should_delete_row = false;
-                                break;
-                        }
+void Tetris::step()
+{
+        if (isPartTouchingSide(TETRIS_SIDE_BOTTOM)) {
+                if (isPartOOB()) {
+                        exit(0);
                 }
+                addPartToGrid();
+                addScore(getCompleteLines());
+                addPart();
+        } else {
+                currentPart->moveVertical(-1);
 
-                if (should_delete_row) {
-                        deleted_rows++;
-                        should_delete_rows[i] = should_delete_row;
+                if (isPartTouchingGridContent()) {
+                        exit(123);
                 }
         }
+}
 
-        return deleted_rows;
+void Tetris::addPartToBuffer(void)
+{
+        std::vector<std::vector<int>> const shape = currentPart->getShape();
+
+        int shapeHeight = shape.size();
+        int shapeWidth = shape[0].size();
+        int gridRow;
+        int gridCol;
+        int i;
+        int j;
+
+        clearBuffer();
+
+        for (i = 0; shapeHeight > i; ++i) {
+                for (j = 0; shapeWidth > j; ++j) {
+                        gridRow = currentPart->getPositionY() + i;
+                        gridCol = currentPart->getPositionX() + j;
+
+                        if (isPointInBounds(gridRow, gridCol)) {
+                                bufferGrid[gridRow][gridCol] = grid[gridRow][gridCol];
+                                if (1 == shape[i][j]) {
+                                        bufferGrid[gridRow][gridCol] = 1;
+                                }
+                        }
+                }
+        }
 }
 
 void Tetris::addPartToGrid(void)
 {
         std::vector<std::vector<int>> const shape = currentPart->getShape();
 
-        int shapeHeight = shape.size();      // Number of rows in the shape
-        int shapeWidth = shape[0].size();    // Number of columns in the shape
+        int shapeHeight = shape.size();
+        int shapeWidth = shape[0].size();
+        int gridRow;
+        int gridCol;
+        int i;
+        int j;
 
         if (!isOverlap(*currentPart)) {
-                for (int i = 0; i < shapeHeight; ++i) {
-                        for (int j = 0; j < shapeWidth; ++j) {
-                                if (shape[i][j] == 1) {
-                                        int gridRow = currentPart->getPositionY() + i;
-                                        int gridCol = currentPart->getPositionX() + j;
-                                        grid[gridRow][gridCol] = 1;  // Copy the value from the shape to the grid
+                for (i = 0; shapeHeight > i; ++i) {
+                        for (j = 0; shapeWidth > j; ++j) {
+                                if (1 == shape[i][j]) {
+                                        gridRow = currentPart->getPositionY() + i;
+                                        gridCol = currentPart->getPositionX() + j;
+                                        grid[gridRow][gridCol] = 1;
                                 }
                         }
                 }
         }
 }
 
-bool Tetris::isCurrentPartPartiallyOutsideBounds(void)
+void Tetris::clearBuffer(void)
 {
-        std::vector<std::vector<int>> const shape = currentPart->getShape();
+        int i;
+        int j;
 
-        int shapeHeight = shape.size();
-        int shapeWidth = shape[0].size();
-
-        for (int i = 0; i < shapeHeight; ++i) {
-                for (int j = 0; j < shapeWidth; ++j) {
-
-                        if (shape[i][j] == 0) {
-                                continue;
-                        }
-
-                        int gridRow = currentPart->getPositionY() + i;
-                        int gridCol = currentPart->getPositionX() + j;
-
-                        if (grid[gridRow][gridCol] == 1 || !(areCoordinatesInBounds(gridRow, gridCol))) {
-                                return true;
-                        }
+        for (i = 0; ROWS > i; ++i) {
+                for (j = 0; COLUMNS > j; ++j) {
+                        bufferGrid[i][j] = 0;
                 }
         }
-
-        return false;
 }
 
-void Tetris::addScore(int deleted_lines)
+void Tetris::clearGrid(void)
 {
-        total_lines += deleted_lines;
-        score += deleted_lines_multiplier[deleted_lines]*(level + 1);
-        level = total_lines / 10;
-}
+        int i;
+        int j;
 
-void Tetris::step()
-{
-        int deleted_lines;
-        if (isTouchingSide(TETRIS_SIDE_BOTTOM)) {
-                if (isCurrentPartPartiallyOutsideBounds()) {
-                        exit(0);
-                }
-                addPartToGrid();
-                deleted_lines = getLinesToDelete();
-                addScore(deleted_lines);
-                addPart();
-        } else {
-                currentPart->moveVertical(-1);
-
-                if (isTouchingGridContent()) {
-                        exit(123);
+        for (i = 0; ROWS > i; ++i) {
+                for (j = 0; COLUMNS > j; ++j) {
+                        grid[i][j] = 0;
                 }
         }
 }
 
 void Tetris::draw(void)
 {
-        printCurrentPart();
-        printNextPart();
-        printGrid();
-        printBufferGrid();
+        addPartToBuffer();
+        drawNextPart();
+        drawGrid();
+        drawBuffer();
 
 }
 
-bool Tetris::isOverlap(Tetromino &tetromino)
+void Tetris::drawBuffer(void)
 {
-        std::vector<std::vector<int>> const shape = tetromino.getShape();
+        int i;
+        int j;
 
-        int shapeHeight = shape.size();
-        int shapeWidth = shape[0].size();
-
-        for (int i = 0; i < shapeHeight; ++i) {
-                for (int j = 0; j < shapeWidth; ++j) {
-
-                        if (shape[i][j] == 0) {
-                                continue;
-                        }
-                        int gridRow = tetromino.getPositionY() + i;
-                        int gridCol = tetromino.getPositionX() + j;
-
-                        if (grid[gridRow][gridCol] == 1 || !(areCoordinatesInBounds(gridRow, gridCol))) {
-                                return true;
-                        }
-                }
-        }
-
-        return false;
-}
-
-int Tetris::testKicks(Tetromino &tetromino)
-{
-
-        auto const kicks = tetromino.getKicks();
-
-
-        for (int test_idx = 0; 5 > test_idx; ++test_idx) {
-                Tetromino testPart(tetromino);
-
-                int moveHorizontal = (*kicks)[test_idx][0];
-                int moveVertical = (*kicks)[test_idx][1];
-
-                testPart.rotate();
-                testPart.move(moveHorizontal);
-                testPart.moveVertical(moveVertical);
-
-                if (!isOverlap(testPart)) {
-                        return test_idx;
-                }
-        }
-
-        return -1;
-
-}
-
-void Tetris::clearBuffer(void)
-{
-        for (int i = 0; i < ROWS; ++i) {
-                for (int j = 0; j < COLUMNS; ++j) {
-                        buffer_grid[i][j] = 0;
-                }
-        }
-}
-
-bool Tetris::areCoordinatesInBounds(int x, int y)
-{
-        return (x >= 0 && x < ROWS && y >= 0 && y < COLUMNS);
-}
-
-void Tetris::printCurrentPart(void)
-{
-
-        std::vector<std::vector<int>> const shape = currentPart->getShape();
-
-        int shapeHeight = shape.size();      // Number of rows in the shape
-        int shapeWidth = shape[0].size();    // Number of columns in the shape
-        clearBuffer();
-
-        // Loop through each element in the shape matrix
-        for (int i = 0; i < shapeHeight; ++i) {
-                for (int j = 0; j < shapeWidth; ++j) {
-                        // Calculate the corresponding position in the grid
-                        int gridRow = currentPart->getPositionY() + i;
-                        int gridCol = currentPart->getPositionX() + j;
-
-                        // Ensure we're not going out of bounds in the grid
-                        if (areCoordinatesInBounds(gridRow, gridCol)) {
-                                buffer_grid[gridRow][gridCol] = grid[gridRow][gridCol];
-                                if (shape[i][j] == 1) {
-                                        buffer_grid[gridRow][gridCol] = 1;  // Copy the value from the shape to the grid
-                                }
-                        }
-                }
-        }
-}
-
-void Tetris::printBufferGrid(void)
-{
-        for (int i = 0; ROWS > i; ++i) {
-                for (int j = 0; COLUMNS > j; ++j) {
-                        if (0 != buffer_grid[i][j]) {
+        for (i = 0; ROWS > i; ++i) {
+                for (j = 0; COLUMNS > j; ++j) {
+                        if (0 != bufferGrid[i][j]) {
                                 printer(i, j);
                         }
                 }
         }
 }
 
-void Tetris::printNextPart(void)
+void Tetris::drawGrid(void)
 {
+        int i;
+        int j;
 
-        std::vector<std::vector<int>> const shape = nextPart->getShape();
-
-        int shapeHeight = shape.size();
-        int shapeWidth = shape[0].size();
-
-        for (int i = 0; shapeHeight > i; ++i) {
-                for (int j = 0; shapeWidth > j; ++j) {
-                        if (0 != shape[i][j]) {
-                                next_printer(i, j);
-                        }
-                }
-        }
-}
-
-void Tetris::printGrid(void)
-{
-        for (int i = 0; ROWS > i; ++i) {
-                for (int j = 0; COLUMNS > j; ++j) {
+        for (i = 0; ROWS > i; ++i) {
+                for (j = 0; COLUMNS > j; ++j) {
                         if (0 != grid[i][j]) {
                                 printer(i, j);
                         }
@@ -470,84 +334,33 @@ void Tetris::printGrid(void)
         }
 }
 
-
-/*!
- * @brief Whether current part is touching with its specified side the window
- *        frame or any block at the grid
- *
- * @param partSide
- * @return
- */
-bool Tetris:: isTouchingSide(Side_t const partSide)
+void Tetris::drawNextPart(void)
 {
-        std::vector<std::vector<int>> const shape = currentPart->getShape();
+        std::vector<std::vector<int>> const shape = nextPart->getShape();
+
         int shapeHeight = shape.size();
         int shapeWidth = shape[0].size();
+        int i;
+        int j;
 
-        for (int i = 0; i < shapeHeight; ++i) {
-                for (int j = 0; j < shapeWidth; ++j) {
-
-                        if (shape[i][j] != 1) {
-                                continue;
-                        }
-                        int gridCol = currentPart->getPositionX() + j;
-                        int gridRow = currentPart->getPositionY() + i;
-
-                        if ((TETRIS_SIDE_RIGHT == partSide) && (gridCol >= COLUMNS - 1)) {
-                                return true;
-                        } else if ((TETRIS_SIDE_LEFT == partSide) && (gridCol <= 0)) {
-                                return true;
-                        } else if ((TETRIS_SIDE_LEFT == partSide) && (grid[gridRow][gridCol - 1] == 1)) {
-                                return true;
-                        } else if ((TETRIS_SIDE_RIGHT == partSide) && (grid[gridRow][gridCol + 1] == 1)) {
-                                return true;
-                        } else if ((TETRIS_SIDE_BOTTOM == partSide) && (gridRow == ROWS - 1) && (1 == shape[i][j])) {
-                                return true;
-                        } else if ((TETRIS_SIDE_BOTTOM == partSide) && (1 == shape[i][j]) &&
-                                   (grid[gridRow + 1][gridCol] == 1)) {
-                                return true;
+        for (i = 0; shapeHeight > i; ++i) {
+                for (j = 0; shapeWidth > j; ++j) {
+                        if (0 != shape[i][j]) {
+                                next_printer(i, j);
                         }
                 }
         }
-
-        return false;
 }
 
-bool Tetris::isTouchingGridContent(void)
+// TODO: do something not as horrible as this here
+void Tetris::animateLineDeletion(void (Tetris::*onAnimationEnd)(void))
 {
-        std::vector<std::vector<int>> const shape = currentPart->getShape();
-        int shapeHeight = shape.size();
-        int shapeWidth = shape[0].size();
-
-        for (int i = 0; i < shapeHeight; ++i) {
-                for (int j = 0; j < shapeWidth; ++j) {
-
-                        if (shape[i][j] != 1) {
-                                continue;
-                        }
-                        int gridCol = currentPart->getPositionX() + j;
-                        int gridRow = currentPart->getPositionY() + i;
-
-                        if (gridRow < 0) {
-                                // Part is spawning, ignore it
-                               // continue;
-                        }
-                        if (grid[gridRow][gridCol] == 1) {
-                                return true;
-                        }
-                }
-        }
-
-        return false;
-}
-
-
-void Tetris::animateDeleteRows(void (Tetris::*onAnimationEnd)(void))
-{
-        int64_t n = get_us();
+        int64_t n = getMs();
         bool state;
-        if (50 < (n - last_time)) {
-                last_time = n;
+        int i;
+
+        if (50 < (n - lastTime)) {
+                lastTime = n;
                 iteration++;
         }
 
@@ -583,9 +396,9 @@ void Tetris::animateDeleteRows(void (Tetris::*onAnimationEnd)(void))
 
         }
 
-        for (int i = 0; ROWS > i; ++i) {
-                if(should_delete_rows[i]) {
-                        setRow(state, i);
+        for (i = 0; ROWS > i; ++i) {
+                if(shouldDeleteRows[i]) {
+                        setLineAtGrid(state, i);
                 }
         }
 
@@ -594,48 +407,283 @@ void Tetris::animateDeleteRows(void (Tetris::*onAnimationEnd)(void))
                 (this->*onAnimationEnd)();
         }
 
-        printGrid();
+        drawGrid();
 }
 
-void Tetris::setRow(bool b, int i)
-{
-        int value = b ? 1 : 0;
-        for (int j = 0; COLUMNS > j; ++j) {
-                grid[i][j] = value;
-        }
-}
-
-void Tetris::deleteFullRows(void)
+void Tetris::deleteCompletedLines(void)
 {
         int i = 0;
         int j = 0;
-        bool deleted_a_row = true;
+        bool deletedARow = true;
+        bool shouldDeleteRow;
 
-        while (deleted_a_row) {
-                deleted_a_row = false;
-                for (i = ROWS; (0 <= i) && (!deleted_a_row); --i) {
-                        bool should_delete_row = true;
+        while (deletedARow) {
+                deletedARow = false;
+                for (i = ROWS; (0 <= i) && (!deletedARow); --i) {
+                        shouldDeleteRow = true;
+
                         for (j = 0; COLUMNS > j; ++j) {
                                 if (grid[i][j] != 1) {
-                                        should_delete_row = false;
+                                        shouldDeleteRow = false;
                                         break;
                                 }
                         }
 
-                        if (should_delete_row) {
-                                deleted_a_row = true;
-                                deleteRowAndShiftDown(i);
+                        if (shouldDeleteRow) {
+                                deletedARow = true;
+                                deleteLineAndShiftDown(i);
                         }
                 }
         }
 
-        memset(should_delete_rows, false, sizeof(should_delete_rows));
+        memset(shouldDeleteRows, false, sizeof(shouldDeleteRows));
+}
 
+void Tetris::deleteLineAndShiftDown(int const lineToDelete)
+{
+        int i;
+
+        for (i = lineToDelete; 0 < i; --i) {
+                memcpy(grid[i], grid[i - 1], sizeof(grid[0]));
+        }
+
+        memset(grid[0], 0, sizeof(grid[0]));
+}
+
+int Tetris::getCompleteLines(void)
+{
+        int i = 0;
+        int j = 0;
+        int deletedRows = 0;
+        bool shouldDeleteRow;
+
+        for (i = ROWS;  0 <= i; --i) {
+                shouldDeleteRow = true;
+
+                for (j = 0; COLUMNS > j; ++j) {
+                        if (grid[i][j] != 1) {
+                                shouldDeleteRow = false;
+                                break;
+                        }
+                }
+
+                if (shouldDeleteRow) {
+                        deletedRows++;
+                        shouldDeleteRows[i] = shouldDeleteRow;
+                }
+        }
+
+        return deletedRows;
+}
+
+bool Tetris::isAnyLineToDelete(void) {
+        for (int i = 0; ROWS > i; ++i) {
+                if (shouldDeleteRows[i]) {
+                        return true;
+                }
+        }
+        return false;
+}
+
+void Tetris::setLineAtGrid(bool const b, int const i)
+{
+        int j;
+        int value = b ? 1 : 0;
+        for (j = 0; COLUMNS > j; ++j) {
+                grid[i][j] = value;
+        }
+}
+
+
+bool Tetris::isOverlap(Tetromino &tetromino)
+{
+        std::vector<std::vector<int>> const shape = tetromino.getShape();
+
+        int shapeHeight = shape.size();
+        int shapeWidth = shape[0].size();
+        int gridRow;
+        int gridCol;
+        int i;
+        int j;
+
+        for (i = 0; shapeHeight > i; ++i) {
+                for (j = 0; shapeWidth > j; ++j) {
+
+                        if (0 == shape[i][j]) {
+                                continue;
+                        }
+
+                        gridRow = tetromino.getPositionY() + i;
+                        gridCol = tetromino.getPositionX() + j;
+
+                        if ((1 == grid[gridRow][gridCol]) || !(isPointInBounds(gridRow, gridCol))) {
+                                return true;
+                        }
+                }
+        }
+
+        return false;
+}
+
+bool Tetris::isPartOOB(void)
+{
+        std::vector<std::vector<int>> const shape = currentPart->getShape();
+
+        int shapeHeight = shape.size();
+        int shapeWidth = shape[0].size();
+        int gridRow;
+        int gridCol;
+        int i;
+        int j;
+
+        for (i = 0; shapeHeight > i; ++i) {
+                for (j = 0; shapeWidth > j; ++j) {
+
+                        if (shape[i][j] == 0) {
+                                continue;
+                        }
+
+                        gridRow = currentPart->getPositionY() + i;
+                        gridCol = currentPart->getPositionX() + j;
+
+                        if ((1 == grid[gridRow][gridCol]) || !(isPointInBounds(gridRow, gridCol))) {
+                                return true;
+                        }
+                }
+        }
+
+        return false;
+}
+
+bool Tetris::isPartTouchingGridContent(void)
+{
+        std::vector<std::vector<int>> const shape = currentPart->getShape();
+        int shapeHeight = shape.size();
+        int shapeWidth = shape[0].size();
+        int gridRow;
+        int gridCol;
+        int i;
+        int j;
+
+        for (i = 0; i < shapeHeight; ++i) {
+                for (j = 0; j < shapeWidth; ++j) {
+
+                        if (shape[i][j] != 1) {
+                                continue;
+                        }
+
+                        gridCol = currentPart->getPositionX() + j;
+                        gridRow = currentPart->getPositionY() + i;
+
+                        if (0 > gridRow) {
+                                // Part is spawning, ignore it
+                                // continue;
+                        }
+
+                        if (1 == grid[gridRow][gridCol]) {
+                                return true;
+                        }
+                }
+        }
+
+        return false;
+}
+
+/*!
+ * @brief Whether current part is touching with its specified side the window
+ *        frame or any block at the grid
+ *
+ * @param partSide
+ * @return
+ */
+bool Tetris:: isPartTouchingSide(Side_t const partSide)
+{
+        std::vector<std::vector<int>> const shape = currentPart->getShape();
+        int shapeHeight = shape.size();
+        int shapeWidth = shape[0].size();
+        int gridRow;
+        int gridCol;
+        int i;
+        int j;
+
+        for (i = 0; shapeHeight > i; ++i) {
+                for (j = 0; shapeWidth > j; ++j) {
+                        if (1 != shape[i][j]) {
+                                continue;
+                        }
+
+                        gridCol = currentPart->getPositionX() + j;
+                        gridRow = currentPart->getPositionY() + i;
+
+                        if ((TETRIS_SIDE_RIGHT == partSide) && (gridCol >= COLUMNS - 1)) {
+                                return true;
+                        } else if ((TETRIS_SIDE_LEFT == partSide) && (0 >= gridCol)) {
+                                return true;
+                        } else if ((TETRIS_SIDE_LEFT == partSide) && (1 == grid[gridRow][gridCol - 1])) {
+                                return true;
+                        } else if ((TETRIS_SIDE_RIGHT == partSide) && (1 == grid[gridRow][gridCol + 1])) {
+                                return true;
+                        } else if ((TETRIS_SIDE_BOTTOM == partSide) && ((ROWS - 1) == gridRow) && (1 == shape[i][j])) {
+                                return true;
+                        } else if ((TETRIS_SIDE_BOTTOM == partSide) && (1 == shape[i][j]) &&
+                                   (grid[gridRow + 1][gridCol] == 1)) {
+                                return true;
+                        }
+                }
+        }
+
+        return false;
+}
+
+bool Tetris::isPointInBounds(int const x, int const y)
+{
+        return ((0 <= x) && (ROWS > x) && (0 <= y) && (COLUMNS > y));
+}
+
+int Tetris::testPartKicks(Tetromino &tetromino)
+{
+        auto const kicks = tetromino.getKicks();
+        int testIdx;
+        int moveHorizontal;
+        int moveVertical;
+
+        for (testIdx = 0; 5 > testIdx; ++testIdx) {
+                Tetromino testPart(tetromino);
+
+                moveHorizontal = (*kicks)[testIdx][0];
+                moveVertical = (*kicks)[testIdx][1];
+
+                testPart.rotate();
+                testPart.move(moveHorizontal);
+                testPart.moveVertical(moveVertical);
+
+                if (!isOverlap(testPart)) {
+                        return testIdx;
+                }
+        }
+
+        return -1;
+}
+
+static std::unique_ptr<Shape> getRandomShape(void)
+{
+        std::array<std::unique_ptr<Shape>(*)(), 7> shapeFactories = {
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<TShape>(); },
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<SShape>(); },
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<IShape>(); },
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<JShape>(); },
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<LShape>(); },
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<OShape>(); },
+                +[]() -> std::unique_ptr<Shape> { return std::make_unique<ZShape>(); }
+        };
+        std::srand(std::time(nullptr));
+
+        int randomNumber = (std::rand() % 6);
+
+        return shapeFactories[randomNumber]();
 }
 /*
  *******************************************************************************
  * Interrupt Service Routines / Tasks / Thread Main Functions                  *
  *******************************************************************************
  */
-
-
