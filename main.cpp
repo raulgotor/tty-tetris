@@ -20,6 +20,7 @@
  */
 #define _XOPEN_SOURCE_EXTENDED
 
+#include <clocale>
 #include <libc.h>
 #include <ncurses.h>
 #include <functional>
