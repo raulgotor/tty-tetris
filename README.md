@@ -1,0 +1,2 @@
+## Tetris Game
+This is a C++ implementation of the classic Tetris game. The project uses ncurses for rendering, enabling a console-based gameplay experience. The program features dynamic and random tetromino generation, scoring, level progression, and simple controls to manipulate the tetromino pieces.
